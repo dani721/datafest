@@ -1,0 +1,98 @@
+---
+title: "project1"
+author: 'Danli Zheng, Nianxin Zhou,Wyatt Robertson '
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+
+###load data
+We load the data for the project
+```{r }
+library(readxl)
+baby <- read_excel("C:/Users/721da/Documents/ucd 18fall/STA138/project/baby.xls")
+View(baby)
+
+```
+
+### change class
+We found that the class of variables are charaters. We need factor to do log linear calculation.
+```{r }
+class(baby$hyp)
+class(baby$pre)
+class(baby$smoke)
+baby$smoke<- as.factor(baby$smoke)
+baby$hyp<- as.factor(baby$hyp)
+baby$pre<- as.factor(baby$pre)
+```
+
+### build a model
+In order to find the relationship, we build a full model with low birth weight of infant against 6 other variable.  
+low birth weight of infant vs  
+- age(the age of the mother).  
+- weight (the weight (in pounds) of the mother (before pregnancy)).  
+- smoke (smoking status during pregnancy, with levels yes and no).  
+- pre (history of pre-mature labor, with levels yes and no).  
+- hyp (history of hypertension, with levels yes or no).  
+- visits (the number of visits during the first trimester (first three months)).
+```{r}
+
+fit=glm(birth~age+weight+smoke+pre+hyp+visits+age*weight+weight*pre+weight*hyp+age*smoke+smoke*weight+age*visits+smoke*visits+weight*visits,data=baby)
+summary(fit)
+```
+### model diagnostics
+```{r}
+library(MASS)
+fit <- stepAIC(fit, trace = FALSE)
+step(fit)
+fit$anova
+
+bestfit=glm(formula=birth~age + weight + smoke + pre + hyp + visits + age:visits, family = binomial(),data = baby)
+summary(bestfit)
+```
+From AIC, we found our final model is birth vs age, weight, smoke,pre,hyp,visits and interaction between age and visits.  
+
+
+### Deviance Residuals and Pearson Residuals
+Here we found pearson and deviance residual see if it is lack-of-fit.  
+From the result, it is no indication of lack-of-fit found.
+
+```{r}
+res.P = residuals(bestfit, type="pearson")
+res.D = residuals(bestfit, type="deviance") #or residuals(fit), by default
+Dsquare=sum(res.P)
+Gsquare=sum(res.D)
+Dsquare>qchisq(0.95,length(bestfit)-5)
+Gsquare>qchisq(0.95,length(bestfit)-5)
+boxplot(cbind(res.P, res.D), labels = c("Pearson", "Deviance"))
+```
+
+
+```{r}
+plot(bestfit$fitted.values,res.P,xlab="fitted value",ylab="pearson")
+fit.cv = smooth.spline(bestfit$fitted.values,res.P, cv = FALSE,spar=0.9) # CV fit
+lines(fit.cv, col = "red")
+abline(h=0,lty=3)
+
+plot(bestfit$fitted.values,res.D,xlab="fitted value",ylab="deviance")
+fit.cv = smooth.spline(bestfit$fitted.values,res.D, cv = FALSE,spar=0.9) # CV fit
+lines(fit.cv, col = "red")
+abline(h=0,lty=3)
+### install.packages('lawstat')
+library(lawstat)
+runs.test(y = res.D, plot.it = TRUE)
+```
+
+### estimates parameters
+
+```{r}
+exp(bestfit$coefficients[2])
+exp(bestfit$coefficients[3])
+exp(bestfit$coefficients[4])
+exp(bestfit$coefficients[5])
+exp(bestfit$coefficients[6])
+
+```
+
